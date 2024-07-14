@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Падающие яблоки</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-image: url('background.jpg'); /* ваша фоновая картинка */
+            background-size: cover;
+            background-position: center;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden; /* чтобы яблоки не падали за экран */
+            color: white;
+        }
+
+        .score {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 10px;
+            background-color: rgba(255, 255, 255, 0.3);
+            border-radius: 5px;
+            z-index: 1; /* чтобы счетчик был поверх яблок */
+        }
+
+        .apples {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        .apple {
+            position: absolute;
+            left: calc(50% - 25px); /* чтобы яблоки падали в центре экрана */
+            width: 50px;
+            height: 50px;
+            background-image: url('apple.png'); /* ваша картинка яблока */
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            animation: fall linear infinite;
+            cursor: pointer; /* чтобы показать, что яблоко кликабельно */
+        }
+
+        .apple.wormy {
+            background-image: url('wormy_apple.png'); /* ваше изображение червивого яблока */
+        }
+
+        .token-change {
+            position: absolute;
+            top: 50px;
+            right: 20px;
+            font-size: 24px;
+            transition: opacity 0.5s ease;
+            opacity: 0;
+        }
+
+        @keyframes fall {
+            0% { top: -50px; }
+            100% { top: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="score">Coins: <span id="score" style="background-color: rgba(255, 255, 255, 0.5); padding: 5px; border-radius: 5px;">0</span></div>
+    <div class="apples"></div>
+    <div class="token-change" id="tokenChange"></div>
+    <script>
+        let score = 0;
+        let appleSpeed = 8; // Initial speed of apple falling (in seconds)
+        let currentApples = 1; // Initial number of apples falling
+        let gameTimer = 0; // Game timer in seconds
+        let increaseDifficultyInterval = 10; // Increase difficulty interval in seconds
+
+        // При загрузке страницы проверяем, есть ли сохраненное значение коинов в localStorage
+        document.addEventListener('DOMContentLoaded', () => {
+            if (localStorage.getItem('coins')) {
+                score = parseInt(localStorage.getItem('coins'));
+                document.getElementById('score').textContent = score;
+            }
+            startGame();
+            setInterval(() => {
+                gameTimer++;
+                increaseDifficulty();
+            }, 1000); // Increase game timer every second
+        });
+
+        function getRandomInt(min, max) {
+            return Math.floor(Math.random() * (max - min + 1)) + min;
+        }
+
+        function checkCollision(newApple, existingApples) {
+            const rect1 = newApple.getBoundingClientRect();
+            for (let apple of existingApples) {
+                const rect2 = apple.getBoundingClientRect();
+                // Проверяем типы яблок и исключаем столкновения разных типов
+                const isWormy1 = newApple.classList.contains('wormy');
+                const isWormy2 = apple.classList.contains('wormy');
+                
+                if (!(rect1.right < rect2.left ||
+                      rect1.left > rect2.right ||
+                      rect1.bottom < rect2.top ||
+                      rect1.top > rect2.bottom) &&
+                      !(isWormy1 !== isWormy2)) {
+                    return true; // столкновение обнаружено
+                }
+            }
+            return false; // столкновение не обнаружено
+        }
+
+        function createApple() {
+            const existingApples = document.querySelectorAll('.apple');
+            let newApple;
+            if (Math.random() < 0.7) {
+                do {
+                    newApple = document.createElement('div');
+                    newApple.classList.add('apple');
+                    newApple.style.left = `${getRandomInt(0, window.innerWidth - 50)}px`;
+                } while (checkCollision(newApple, existingApples));
+
+                newApple.addEventListener('click', () => {
+                    let change = 1; // обычное яблоко
+                    score += change;
+                    document.getElementById('score').textContent = score;
+                    localStorage.setItem('coins', score); // Сохраняем значение коинов в localStorage
+
+                    // Показываем изменение токена над коинами
+                    const tokenChange = document.getElementById('tokenChange');
+                    tokenChange.textContent = `+${change}`;
+                    tokenChange.style.opacity = 1;
+                    setTimeout(() => {
+                        tokenChange.style.opacity = 0;
+                    }, 1000); // Отображаем изменение в течение 1 секунды
+
+                    newApple.remove();
+                });
+
+                document.querySelector('.apples').appendChild(newApple);
+
+                const fallInterval = setInterval(() => {
+                    const rect = newApple.getBoundingClientRect();
+                    if (rect.top >= window.innerHeight) {
+                        clearInterval(fallInterval);
+                        newApple.remove();
+                    }
+                }, 1000 / appleSpeed); // Adjusted fall speed based on appleSpeed
+
+                // Increase speed of falling apples over time
+                newApple.style.animationDuration = `${appleSpeed}s`;
+            } else {
+                do {
+                    newApple = document.createElement('div');
+                    newApple.classList.add('apple', 'wormy');
+                    newApple.style.left = `${getRandomInt(0, window.innerWidth - 50)}px`;
+                } while (checkCollision(newApple, existingApples));
+
+                newApple.addEventListener('click', () => {
+                    let change = -1; // гнилое яблоко
+                    score += change;
+                    document.getElementById('score').textContent = score;
+                    localStorage.setItem('coins', score); // Сохраняем значение коинов в localStorage
+
+                    // Показываем изменение токена над коинами
+                    const tokenChange = document.getElementById('tokenChange');
+                    tokenChange.textContent = `${change}`;
+                    tokenChange.style.opacity = 1;
+                    setTimeout(() => {
+                        tokenChange.style.opacity = 0;
+                    }, 1000); // Отображаем изменение в течение 1 секунды
+
+                    newApple.remove();
+                });
+
+                document.querySelector('.apples').appendChild(newApple);
+
+                const fallInterval = setInterval(() => {
+                    const rect = newApple.getBoundingClientRect();
+                    if (rect.top >= window.innerHeight) {
+                        clearInterval(fallInterval);
+                        newApple.remove();
+                    }
+                }, 1000 / appleSpeed); // Adjusted fall speed based on appleSpeed
+
+                // Increase speed of falling apples over time
+                newApple.style.animationDuration = `${appleSpeed}s`;
+            }
+        }
+
+        function startGame() {
+            setInterval(() => {
+                createApple();
+            }, 3000); // Interval between creating apples (adjustable)
+        }
+
+        function increaseDifficulty() {
+            // Increase number of apples and their speed over time
+            if (gameTimer % increaseDifficultyInterval === 0) {
+                if (currentApples < 6) {
+                    currentApples++;
+                }
+                if (appleSpeed > 3) {
+                    appleSpeed--;
+                }
+            }
+        }
+
+    </script>
+</body>
+</html>
